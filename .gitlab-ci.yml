@@ -141,6 +141,11 @@ build_idf_v5.5:
     expire_in: 3 days
   extends: .build_idf_template
 
+build_idf_v6.0:
+  image: espressif/idf:release-v6.0
+  extends: .build_idf_template
+  allow_failure: true
+
 build_idf_master:
   image: espressif/idf:latest
   variables:
