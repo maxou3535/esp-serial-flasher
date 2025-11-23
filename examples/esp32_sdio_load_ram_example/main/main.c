@@ -11,10 +11,7 @@
 #include <string.h>
 #include "esp_err.h"
 #include "esp_log.h"
-#include "esp_task_wdt.h"
-#include "driver/sdmmc_host.h"
 #include "driver/uart.h"
-#include "driver/gpio.h"
 #include "esp32_sdio_port.h"
 #include "esp_loader.h"
 #include "example_common.h"
@@ -42,13 +39,13 @@ void slave_monitor(void *arg)
 
     ESP_ERROR_CHECK(uart_param_config(UART_NUM_2, &uart_config));
 
-    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_2, GPIO_NUM_22, GPIO_NUM_23,
+    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_2, GPIO_NUM_46, GPIO_NUM_45,
                                  UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_2, BUF_LEN * 4, BUF_LEN * 4, 0, NULL, 0));
 
     while (1) {
-        int rxBytes = uart_read_bytes(UART_NUM_2, buf, BUF_LEN, 100 / portTICK_PERIOD_MS);
+        int rxBytes = uart_read_bytes(UART_NUM_2, buf, BUF_LEN - 1, 100 / portTICK_PERIOD_MS);
         buf[rxBytes] = '\0';
         printf("%s", buf);
     }
@@ -58,20 +55,17 @@ void app_main(void)
 {
     example_ram_app_binary_t bin;
 
-    // The ESP32 used for the example actually does not allow us to change the SD pins,
-    // so setting them in the configuration is meaningless.
-    // The pins used by the ESP32 are:
-    // sdio_clk_pin - GPIO14
-    // sdio_d0_pin - GPIO2
-    // sdio_d1_pin - GPIO4
-    // sdio_d2_pin - GPIO12
-    // sdio_d3_pin - GPIO13
-    // sdio_cmd_pin - GPIO15
     const loader_esp32_sdio_config_t config = {
         .slot = SDMMC_HOST_SLOT_1,
         .max_freq_khz = SDMMC_FREQ_DEFAULT,
-        .reset_trigger_pin = GPIO_NUM_18,
-        .boot_pin = GPIO_NUM_19,
+        .reset_trigger_pin = GPIO_NUM_54,
+        .boot_pin = GPIO_NUM_53,
+        .sdio_d0_pin = GPIO_NUM_50,
+        .sdio_d1_pin = GPIO_NUM_49,
+        .sdio_d2_pin = GPIO_NUM_48,
+        .sdio_d3_pin = GPIO_NUM_47,
+        .sdio_clk_pin = GPIO_NUM_51,
+        .sdio_cmd_pin = GPIO_NUM_52,
     };
 
     if (loader_port_esp32_sdio_init(&config) != ESP_LOADER_SUCCESS) {

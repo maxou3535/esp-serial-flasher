@@ -20,13 +20,67 @@
 </div>
 <hr>
 
+## v1.10.0 (2025-09-25)
+
+### ✨ New Features
+
+- Add support for communication via CP210x and CH34x serial converters *(Jaroslav Burian - 8c67fdc)*
+- Add support for USB CDC ACM for ESP32-P4 as a host *(Jaroslav Burian - e6e5282)*
+
+### 🐛 Bug Fixes
+
+- **esp32c2**: Fix transmission rate change for ESP32-C2 with 26 MHz crystal *(Jaroslav Burian - bb5bc52)*
+- **esp32c2**: Add missing magic value of new ECO4 *(Jaroslav Burian - 468221a)*
+
+### 📖 Documentation
+
+- Better unify example README files and remove explicit references to ESP32 as a target *(Jaroslav Burian - a70404c)*
+- Create new strucured documentation with separated files for each topic *(Jaroslav Burian - 86e49eb)*
+
+### 🔧 Code Refactoring
+
+- Update driver dependency *(Chen Chen - 610873b)*
+
+
+## v1.9.0 (2025-07-21)
+
+### ✨ New Features
+
+- add erase function *(Jaroslav Burian - 1c36d0a)*
+- add esp32_sdio_example to demonstrate SDIO flashing *(Jaroslav Burian - bb41a06)*
+- add support for SDIO flashing *(Jaroslav Burian - e5ae852)*
+- add support for ESP32-P4 *(Jaroslav Burian - e475fe5)*
+- Add ESP32-C5 support without stub *(Jaroslav Burian - f82b1a4)*
+
+### 🐛 Bug Fixes
+
+- ensure stubs for targets are stored in flash to save RAM space *(Jaroslav Burian - e3572f3)*
+- flash error log indentation *(Jaroslav Burian - 8d6504d)*
+- add missing stub error codes *(Jaroslav Burian - f452b3b)*
+- properly check flash size when verifying flash *(Jaroslav Burian - cf1ca67)*
+- writing above 0x200000 in SDM *(Jaroslav Burian - 34d27fe)*
+- use correct image header size for ESP8266 *(Jaroslav Burian - 3f7a78f)*
+- esp8266 bootloader offset address *(Jaroslav Burian - 4858e98)*
+
+### 📖 Documentation
+
+- **zephyr**: improve description of how to use the Zephyr example *(Jaroslav Burian - 08f5f41)*
+- fix Markdown syntax and improve notes *(Jaroslav Burian - 52c064e)*
+- mention tested SDK and toolchain versions for each port *(Jaroslav Burian - 4b556cd)*
+- add link to devcon talk *(Jaroslav Burian - 8869652)*
+
+### 🔧 Code Refactoring
+
+- change chip magic values to variable-length pointer array *(Jaroslav Burian - 2b2066c)*
+
+
 ## v1.8.0 (2025-01-27)
 
 ### ✨ New Features
 
 - **examples**: Add ESP32 fast reflash example with MD5 check *(Jaroslav Burian - e0b9b05)*
 - Add a function to check flash regions against a known MD5 *(Djordje Nedic - dd480bc)*
-- Add the SDIO inteface and the corresponding esp port *(Djordje Nedic - b74194b)*
+- Add the SDIO interface and the corresponding esp port *(Djordje Nedic - b74194b)*
 
 ### 🐛 Bug Fixes
 

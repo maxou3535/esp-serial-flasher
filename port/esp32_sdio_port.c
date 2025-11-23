@@ -56,7 +56,7 @@ esp_loader_error_t loader_port_esp32_sdio_init(const loader_esp32_sdio_config_t 
 
 #if SOC_CACHE_INTERNAL_MEM_VIA_L1CACHE
     /*
-        The buffer and lenght of the data passed to SDMMC Host Driver needs to be aligned.
+        The buffer and length of the data passed to SDMMC Host Driver needs to be aligned.
         The new L1 cache requires 64 bytes aligning of a buffer,
         this flag ensures that SDMMC Driver allocates custom aligned buffer and memcpy the data to it.
         This should be reworked when the new sdmmc driver-ng comes out as it would not need same alignment for size and buffer.
@@ -161,7 +161,6 @@ esp_loader_error_t loader_port_read(const uint32_t function, const uint32_t addr
     }
 }
 
-
 void loader_port_enter_bootloader(void)
 {
     gpio_set_level(s_boot_pin, 0);
@@ -214,4 +213,13 @@ uint32_t loader_port_remaining_time(void)
 void loader_port_debug_print(const char *str)
 {
     printf("DEBUG: %s\n", str);
+}
+
+esp_loader_error_t loader_port_wait_int(uint32_t timeout)
+{
+    if (sdmmc_io_wait_int(&s_card, timeout) == ESP_OK) {
+        return ESP_LOADER_SUCCESS;
+    } else {
+        return ESP_LOADER_ERROR_TIMEOUT;
+    }
 }

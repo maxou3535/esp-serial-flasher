@@ -37,8 +37,7 @@ run_pre_commit:
   script:
     - apt-get update
     - pip install pre-commit
-    - git fetch origin master
-    - pre-commit run --show-diff-on-failure --from-ref origin/master --to-ref HEAD
+    - pre-commit run --show-diff-on-failure --all-files
 
 check_stub_source_correctness:
   stage: pre_check
@@ -74,49 +73,31 @@ check_stub_source_correctness:
         export CCACHE_RECACHE="1"
         echo "INFO: ccache recache enabled"
       fi
-    - python -m idf_build_apps build -v -p .
-      --recursive
-      --exclude ./examples/binaries
-      --config "sdkconfig.defaults*"
-      --build-dir ${BUILD_DIR}
-      --check-warnings
+    - |
+      if [ -n "${TARGETS}" ]; then
+          python -m idf_build_apps build -v -p . \
+              --recursive \
+              --exclude ./examples/binaries \
+              --config "sdkconfig.defaults*" \
+              --build-dir ${BUILD_DIR}_@w \
+              --check-warnings \
+              --target ${TARGETS}
+      else
+          python -m idf_build_apps build -v -p . \
+              --recursive \
+              --exclude ./examples/binaries \
+              --config-rules "sdkconfig.defaults*" \
+              --build-dir ${BUILD_DIR}_@w \
+              --check-warnings
+      fi
     # Show ccache statistics if enabled globally
     - test "$CI_CCACHE_STATS" == 1 && test -n "$(which ccache)" && ccache --show-stats -vv || true
 
 build_idf_v4.3:
   image: espressif/idf:release-v4.3
-  stage: build
-  tags:
-    - build
-    - internet
-  before_script:
-    - apt install ccache
-    - pip install -U idf-build-apps --prefer-binary
+  extends: .build_idf_template
   variables:
-    IDF_CCACHE_ENABLE: 1
-    CCACHE_DIR: "/cache/esf_ccache"
-    CCACHE_SLOPPINESS: "time_macros"
-    PEDANTIC_FLAGS: "-Werror -Wall -Wextra"
-    EXTRA_CFLAGS: "${PEDANTIC_FLAGS}"
-    EXTRA_CXXFLAGS: "${PEDANTIC_FLAGS}"
-    BUILD_DIR: "build"
-  script:
-    # CCACHE_RECACHE Used when invalidating the current cache.
-    # could be enabled by MR label "ccache:recache"
-    - |
-      if [ -n "${CI_MERGE_REQUEST_LABELS}" ] && echo "${CI_MERGE_REQUEST_LABELS}" | grep -q "ccache::recache"; then
-        export CCACHE_RECACHE="1"
-        echo "INFO: ccache recache enabled"
-      fi
-    - python -m idf_build_apps build -v -p .
-      --recursive
-      --exclude ./examples/binaries
-      --target "esp32"
-      --config "sdkconfig.defaults*"
-      --build-dir ${BUILD_DIR}
-      --check-warnings
-    # Show ccache statistics if enabled globally
-    - test "$CI_CCACHE_STATS" == 1 && test -n "$(which ccache)" && ccache --show-stats -vv || true
+    TARGETS: "esp32"
 
 build_idf_v4.4:
   image: espressif/idf:release-v4.4
@@ -136,6 +117,14 @@ build_idf_v5.2:
 
 build_idf_v5.3:
   image: espressif/idf:release-v5.3
+  extends: .build_idf_template
+
+build_idf_v5.4:
+  image: espressif/idf:release-v5.4
+  extends: .build_idf_template
+
+build_idf_v5.5:
+  image: espressif/idf:release-v5.5
   variables:
     BUILD_DIR: "build_stable"
   artifacts:
@@ -151,6 +140,11 @@ build_idf_v5.3:
     when: always
     expire_in: 3 days
   extends: .build_idf_template
+
+build_idf_v6.0:
+  image: espressif/idf:release-v6.0
+  extends: .build_idf_template
+  allow_failure: true
 
 build_idf_master:
   image: espressif/idf:latest
@@ -169,12 +163,14 @@ build_idf_master:
     when: always
     expire_in: 3 days
   extends: .build_idf_template
+  allow_failure: true
 
 build_stm32:
   stage: build
-  # IDF is not necessary for STM32 build, but this image is already used in another job
-  # and it comes with a recent enough CMake version.
-  image: espressif/idf:latest
+  image: debian:latest
+  before_script:
+    - apt-get update
+    - apt-get install -y git wget cmake ninja-build xz-utils
   artifacts:
     paths:
       - "**/build*/*.bin"
@@ -192,12 +188,15 @@ build_stm32:
     - mv arm-gnu-toolchain-* gcc-arm-none-eabi
     - mkdir $CI_PROJECT_DIR/examples/stm32_example/build
     - cd $CI_PROJECT_DIR/examples/stm32_example/build
-    - cmake -DSTM32_TOOLCHAIN_PATH=$CI_PROJECT_DIR/gcc-arm-none-eabi -DSTM32_CUBE_H7_PATH=$CI_PROJECT_DIR/STM32CubeH7 -G Ninja ..
+    - cmake -DSTM32_TOOLCHAIN_PATH=$CI_PROJECT_DIR/gcc-arm-none-eabi -DSTM32_CUBE_H7_PATH=$CI_PROJECT_DIR/STM32CubeH7 -DMD5_ENABLED=1 -G Ninja ..
     - cmake --build .
 
 build_zephyr:
   stage: build
-  image: espressif/idf:latest
+  image: debian:latest
+  before_script:
+    - apt-get update
+    - apt-get install -y git cmake ninja-build wget python3 python3-pip python3-venv xz-utils
   artifacts:
     paths:
       - "**/build*/zephyr/*.bin"
@@ -222,22 +221,27 @@ build_zephyr:
     - export ZEPHYR_TOOLCHAIN_VARIANT="zephyr"
     - cd $CI_PROJECT_DIR/zephyrproject-rtos/zephyr
     - export ZEPHYR_BASE=$(pwd)
-    - pip install -r scripts/requirements.txt
-    - pip install wheel
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - pip install -r scripts/requirements.txt --prefer-binary
+    - pip install wheel --prefer-binary
     - if [[ ! -d "$CI_PROJECT_DIR/zephyrproject-rtos/.west" ]]; then
     - west init -l .
     - fi
     - unset IDF_PATH
     - west zephyr-export
     - west update hal_espressif
-    - west build -p -b esp32_devkitc_wroom/esp32/procpu $CI_PROJECT_DIR/examples/zephyr_example -DZEPHYR_EXTRA_MODULES=$CI_PROJECT_DIR
+    - west build -p -b esp32_devkitc_wroom/esp32/procpu $CI_PROJECT_DIR/examples/zephyr_example -DZEPHYR_EXTRA_MODULES=$CI_PROJECT_DIR -DMD5_ENABLED=1
 
 build_pi_pico:
   stage: build
-  image: espressif/idf:latest
+  image: debian:latest
   tags:
     - build
     - internet
+  before_script:
+    - apt-get update
+    - apt-get install -y git wget cmake build-essential python3 python3-pip
   artifacts:
     paths:
       - "**/build*/*.bin"
@@ -255,7 +259,7 @@ build_pi_pico:
     - cd $CI_PROJECT_DIR/examples/pi_pico_example
     - mkdir build
     - cd build
-    - cmake ..
+    - cmake -DMD5_ENABLED=1 ..
     - cmake --build .
 
 build_pi:
@@ -269,7 +273,7 @@ build_pi:
   script:
     - cd $CI_PROJECT_DIR/examples/raspberry_example
     - mkdir build && cd build
-    - cmake .. && cmake --build .
+    - cmake -DMD5_ENABLED=1 .. && cmake --build .
   artifacts:
     paths:
       - "${CI_PROJECT_DIR}/examples/raspberry_example/build/raspberry_flasher"
@@ -292,9 +296,11 @@ test_qemu:
   image: debian:latest
   before_script:
     - apt-get update
-    - apt-get install -y python3 python3-pip libffi-dev
-    - pip install -r $CI_PROJECT_DIR/test/requirements_test.txt --break-system-packages --prefer-binary
-    - pip install esptool --break-system-packages --prefer-binary
+    - apt-get install -y python3 python3-pip python3-venv libffi-dev
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - pip install -r $CI_PROJECT_DIR/test/requirements_test.txt --prefer-binary
+    - pip install esptool --prefer-binary
   artifacts:
     paths:
       - "${CI_PROJECT_DIR}/examples/pytest_embedded_log/"
@@ -310,10 +316,13 @@ test_esp1:
       - CI_BUILD_FOLDER:
           - "build_stable"
           - "build_master"
+  rules:
+    - if: '$CI_BUILD_FOLDER == "build_master"'
+      allow_failure: true
+    - when: always
   script:
     - cd $CI_PROJECT_DIR
     - pytest --target=esp32s3 --port=/dev/serial_ports/ESP32S3_ESP32C3 -k 'not test_esp32_spi_load_ram_example'
-    - pytest --target=esp32 --port=/dev/serial_ports/ESP32_ESP32C6 -k 'test_esp32_sdio_load_ram_example'
 
 test_esp2:
   extends: .test_template
@@ -324,10 +333,15 @@ test_esp2:
       - CI_BUILD_FOLDER:
           - "build_stable"
           - "build_master"
+  rules:
+    - if: '$CI_BUILD_FOLDER == "build_master"'
+      allow_failure: true
+    - when: always
   script:
     - cd $CI_PROJECT_DIR
-    - pytest --target=esp32 --port=/dev/serial_ports/ESP32_ESP32H2 -k 'not test_esp32_sdio_load_ram_example'
+    - pytest --target=esp32 --port=/dev/serial_ports/ESP32_ESP32H2
     - pytest --target=esp32s3 --port=/dev/serial_ports/ESP32S3_ESP32C3 -k 'not test_esp32_usb_cdc_acm_example'
+    - pytest --target=esp32p4 --port=/dev/serial_ports/ESP32P4_ESP32C6
 
 test_zephyr:
   extends: .test_template
@@ -358,8 +372,10 @@ test_rpi:
     - ESF-RPI-01
   before_script:
     - apt-get update
-    - apt-get install -y pigpio python3 python3-pip libffi-dev
-    - pip install -r $CI_PROJECT_DIR/test/requirements_test.txt --break-system-packages --prefer-binary
+    - apt-get install -y pigpio python3 python3-pip python3-venv libffi-dev
+    - python3 -m venv venv
+    - source venv/bin/activate
+    - pip install -r $CI_PROJECT_DIR/test/requirements_test.txt --prefer-binary
   script:
     - pytest --target=raspberry
 

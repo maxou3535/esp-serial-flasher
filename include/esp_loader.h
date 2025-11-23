@@ -65,8 +65,9 @@ typedef enum {
     ESP32C5_CHIP = 6,
     ESP32H2_CHIP = 7,
     ESP32C6_CHIP = 8,
-    ESP_MAX_CHIP = 9,
-    ESP_UNKNOWN_CHIP = 9
+    ESP32P4_CHIP = 9,
+    ESP_MAX_CHIP = 10,
+    ESP_UNKNOWN_CHIP = 10
 } target_chip_t;
 
 /**
@@ -86,7 +87,7 @@ typedef struct {
 typedef struct {
     uint32_t addr;
     uint32_t size;
-    uint8_t *data;
+    const uint8_t *data;
 } esp_loader_bin_segment_t;
 
 typedef struct {
@@ -177,7 +178,9 @@ esp_loader_error_t esp_loader_connect_with_stub(esp_loader_connect_args_t *conne
 esp_loader_error_t esp_loader_connect_secure_download_mode(esp_loader_connect_args_t *connect_args,
         uint32_t flash_size, target_chip_t target_chip);
 #endif /* SERIAL_FLASHER_INTERFACE_UART */
+#endif /* SERIAL_FLASHER_INTERFACE_UART || SERIAL_FLASHER_INTERFACE_USB */
 
+#ifndef SERIAL_FLASHER_INTERFACE_SPI
 /**
   * @brief Initiates flash operation
   *
@@ -236,7 +239,9 @@ esp_loader_error_t esp_loader_flash_finish(bool reboot);
   *     - ESP_LOADER_ERROR_UNSUPPORTED_FUNC The target chip is running in secure download mode
   */
 esp_loader_error_t esp_loader_flash_detect_size(uint32_t *flash_size);
+#endif /* SERIAL_FLASHER_INTERFACE_SPI */
 
+#if (defined SERIAL_FLASHER_INTERFACE_UART) || (defined SERIAL_FLASHER_INTERFACE_USB)
 /**
   * @brief Reads from the target flash.
   *
@@ -252,6 +257,38 @@ esp_loader_error_t esp_loader_flash_detect_size(uint32_t *flash_size);
   *     - ESP_LOADER_ERROR_UNSUPPORTED_FUNC The target chip is running in secure download mode
   */
 esp_loader_error_t esp_loader_flash_read(uint8_t *buf, uint32_t address, uint32_t length);
+
+/**
+  * @brief Erase the whole flash chip
+  *
+  * @note When using ROM-based approach (without stub), this function is experimental
+  *       and not fully tested in all scenarios. Use with caution. When using the stub,
+  *       this function is fully supported.
+  *
+  * @return
+  *     - ESP_LOADER_SUCCESS Success
+  *     - ESP_LOADER_ERROR_TIMEOUT Timeout
+  *     - ESP_LOADER_ERROR_INVALID_RESPONSE Internal error
+  */
+esp_loader_error_t esp_loader_flash_erase(void);
+
+/**
+  * @brief Erase a region of the flash
+  *
+  * @note When using ROM-based approach (without stub), this function is experimental
+  *       and not fully tested in all scenarios. Use with caution. When using the stub,
+  *       this function is fully supported.
+  *
+  * @param offset[in] The offset of the region to erase (must be 4096 byte aligned)
+  * @param size[in] The size of the region to erase (must be 4096 byte aligned)
+  *
+  * @return
+  *     - ESP_LOADER_SUCCESS Success
+  *     - ESP_LOADER_ERROR_TIMEOUT Timeout
+  *     - ESP_LOADER_ERROR_INVALID_RESPONSE Internal error
+  *     - ESP_LOADER_ERROR_INVALID_PARAM Invalid parameter
+  */
+esp_loader_error_t esp_loader_flash_erase_region(uint32_t offset, uint32_t size);
 
 /**
   * @brief Change baud rate of the stub running on the target
@@ -341,9 +378,8 @@ esp_loader_error_t esp_loader_mem_write(const void *payload, uint32_t size);
   */
 esp_loader_error_t esp_loader_mem_finish(uint32_t entrypoint);
 
-#ifndef SERIAL_FLASHER_INTERFACE_SDIO
 /**
-  * @brief Reads te MAC of the connected chip.
+  * @brief Reads the MAC address of the connected chip.
   *
   * @param mac[out] 6 byte MAC address of the chip
   *
@@ -383,6 +419,7 @@ esp_loader_error_t esp_loader_write_register(uint32_t address, uint32_t reg_valu
   */
 esp_loader_error_t esp_loader_read_register(uint32_t address, uint32_t *reg_value);
 
+#ifndef SERIAL_FLASHER_INTERFACE_SDIO
 /**
   * @brief Change baud rate.
   *

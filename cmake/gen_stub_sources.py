@@ -4,6 +4,7 @@ import os
 import sys
 import urllib.request
 from datetime import datetime
+from textwrap import dedent, indent
 
 """
 This python module generates esp_stubs.c/h files from a given version and url, with
@@ -38,6 +39,7 @@ files_to_download = [
     None,  # ESP32C5_CHIP (stub not included for now)
     "esp32h2.json",  # ESP32H2_CHIP
     "esp32c6.json",  # ESP32C6_CHIP
+    None,  # ESP32P4_CHIP (stub not included for now)
 ]
 
 
@@ -68,12 +70,12 @@ def read_stub_json(json_file):
             {{
                 .addr = {text_start},
                 .size = {text_size},
-                .data = (uint8_t[]){{{text_str}}},
+                .data = (const uint8_t[]){{{text_str}}},
             }},
             {{
                 .addr = {data_start},
                 .size = {data_size},
-                .data = (uint8_t[]){{{data_str}}},
+                .data = (const uint8_t[]){{{data_str}}},
             }},
         }},
     }},
@@ -110,7 +112,12 @@ if __name__ == "__main__":
 
         for file_to_download in files_to_download:
             if file_to_download is None:
-                cfile.write("    // placeholder\n" "    {},\n" "\n")
+                placeholder_text = dedent("""\
+                    // placeholder
+                    {},
+
+                    """)
+                cfile.write(indent(placeholder_text, " " * 4))
             else:
                 if stub_override_path:
                     with open(f"{stub_override_path}/{file_to_download}") as file_path:
@@ -121,4 +128,4 @@ if __name__ == "__main__":
                     ) as url:
                         cfile.write(read_stub_json(url))
 
-        cfile.write("};\n" "\n" "#endif\n")
+        cfile.write("};\n\n#endif\n")
